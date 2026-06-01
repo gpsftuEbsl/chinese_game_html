@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>國文閱讀測驗競賽</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap');
+        
+        :root {
+            --primary: #4F46E5;
+            --primary-hover: #4338CA;
+            --success: #10B981;
+            --danger: #EF4444;
+            --bg: #F3F4F6;
+            --text: #1F2937;
+        }
+
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: var(--text);
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            width: 100%;
+            max-width: 1100px; /* 為了左右分欄加寬 */
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            overflow: hidden;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* 畫面切換 */
+        .screen {
+            display: none;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        .screen.active {
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* 遊戲中左右分欄 */
+        .game-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr; /* 左文章，右測驗 */
+            background: #fff;
+        }
+
+        @media (max-width: 800px) {
+            .game-layout {
+                grid-template-columns: 1fr; /* 手機版自動變上下排 */
+            }
+            .article-panel {
+                border-right: none !important;
+                border-bottom: 2px solid #e5e7eb;
+                max-height: 30vh !important;
+            }
+        }
+
+        .article-panel {
+            padding: 30px;
+            background: #f8fafc;
+            border-right: 2px solid #e5e7eb;
+            overflow-y: auto;
+            max-height: 70vh;
+            text-align: left;
+            line-height: 1.8;
+            font-size: 1.05rem;
+        }
+
+        .article-title {
+            color: var(--primary);
+            margin-top: 0;
+            font-size: 1.4rem;
+            border-bottom: 2px solid var(--primary);
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+
+        .quiz-panel {
+            display: flex;
+            flex-direction: column;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* 單欄置中的開始/結尾畫面 */
+        .center-screen {
+            padding: 60px 40px;
+            text-align: center;
+        }
+        .center-screen h1 { margin-top: 0; color: var(--primary); }
+
+        /* 計時器與狀態列 */
+        .timer-bar {
+            height: 6px;
+            background: #E5E7EB;
+            width: 100%;
+        }
+        .timer-progress {
+            height: 100%;
+            background: var(--primary);
+            width: 100%;
+            transition: width 1s linear;
+        }
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            padding: 15px 30px;
+            background: #F9FAFB;
+            border-bottom: 1px solid #E5E7EB;
+            font-weight: bold;
+            color: #6B7280;
+        }
+
+        /* 題目區塊 */
+        .quiz-content { padding: 30px; }
+        .question {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin: 0 0 25px 0;
+            line-height: 1.5;
+            text-align: left;
+        }
+        .options {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .option-btn {
+            background: #FFFFFF;
+            border: 2px solid #E5E7EB;
+            border-radius: 10px;
+            padding: 12px 20px;
+            font-size: 1rem;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: left;
+        }
+        .option-btn:hover:not(:disabled) {
+            border-color: var(--primary);
+            background: #EEF2FF;
+        }
+        .option-btn:disabled { cursor: not-allowed; }
+        .option-btn.correct { background: var(--success); border-color: var(--success); color: white; }
+        .option-btn.wrong { background: var(--danger); border-color: var(--danger); color: white; }
+
+        .start-btn, .restart-btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            border-radius: 30px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+            margin-top: 20px;
+        }
+        .start-btn:hover, .restart-btn:hover { background: var(--primary-hover); }
+        .score-display {
+            font-size: 4rem;
+            font-weight: 900;
+            color: var(--primary);
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- 開始畫面 -->
+    <div id="start-screen" class="screen active center-screen">
+        <h1>閱讀測驗挑戰賽</h1>
+        <p>準備好驗收你的閱讀成果了嗎？<br>左邊有文章可以隨時查閱，每題有 20 秒時間作答！</p>
+        <button class="start-btn" onclick="startGame()">開始挑戰</button>
+    </div>
+
+    <!-- 遊戲畫面 (左右分欄) -->
+    <div id="game-screen" class="screen game-layout">
+        <!-- 左欄：文章顯示區 -->
+        <div class="article-panel">
+            <h2 class="article-title" id="article-title">載入中...</h2>
+            <div id="article-content">載入中...</div>
+        </div>
+
+        <!-- 右欄：測驗區 -->
+        <div class="quiz-panel">
+            <div class="timer-bar"><div class="timer-progress" id="timer"></div></div>
+            <div class="status-bar">
+                <span id="question-counter">題數: 1/9</span>
+                <span id="score-counter">分數: 0</span>
+            </div>
+            <div class="quiz-content">
+                <div class="question" id="question-text">題目載入中...</div>
+                <div class="options" id="options-container"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 結算畫面 -->
+    <div id="end-screen" class="screen center-screen">
+        <h1>測驗結束！</h1>
+        <p>你的最終得分是：</p>
+        <div class="score-display" id="final-score">0</div>
+        <p id="feedback-msg"></p>
+        <button class="restart-btn" onclick="location.reload()">重新挑戰</button>
+    </div>
+</div>
+
+<script>
+    // 文章資料庫
+    const articles = [
+        {
+            title: "第一篇：路邊的苦李",
+            content: "王戎七歲的時候，有一次和幾個好朋友一起去村外玩耍。走著走著，他們看到路邊有一棵高大的李子樹，樹枝上結滿了紅通通的李子，把樹枝都壓得彎了下來。<br><br>其他小朋友看到後，都口水直流，爭先恐後地跑過去，爬上樹去摘李子，只有王戎一個人冷靜地站在原地不動。<br><br>旁邊的大人覺得很奇怪，問他：「小朋友，你怎麼不去摘李子吃啊？」<br><br>王戎指著那棵樹回答說：「這棵樹長在人來人往的路邊，樹上卻還有這麼多李子沒被摘走，這代表李子一定是非常苦澀難吃的。」<br><br>大家半信半疑地把摘下來的李子咬了一口，馬上苦得皺起眉頭，果然和王戎推論的一模一樣。"
+        },
+        {
+            title: "第二篇：兩個兄弟的選擇",
+            content: "有一對兄弟在森林裡旅行，偶然發現了一塊神秘的石頭，上面刻著一段文字：「一直往前走，游過湍急的河流，抱走母熊身邊的小熊，帶著牠一口氣跑到山頂，你就能成為國王。」<br><br>弟弟看了非常興奮，覺得這是一個千載難逢的機會，想要去嘗試；哥哥卻搖搖頭說：「這太危險了，萬一河水太急怎麼辦？萬一被母熊攻擊怎麼辦？我寧願安安穩穩地過平凡的日子。」於是，兩人分道揚鑣。<br><br>弟弟經歷了千辛萬苦，幾次差點失去生命，最後真的成功跑到山頂，被當地人民推舉為國王。然而好景不常，五年後別的國家發動戰爭，弟弟的軍隊被打敗，他失去了王位，再度變成一無所有的流浪漢。<br><br>最後，弟弟回到了家鄉，找到了哥哥。哥哥依然過著平凡但平靜的農夫生活。哥哥感嘆地說：「你看，還是我當初的選擇對吧？雖然我沒有大富大貴，但至少一直平平安安的。」<br><br>弟弟卻笑著回答：「我不後悔我的選擇。雖然我現在什麼都沒了，但我擁有了一段成為國王的精彩回憶，而你卻只有一成不變的生活。」"
+        },
+        {
+            title: "第三篇：三個小偷與三大陷阱",
+            content: "有一個少婦準備進城去賣一頭驢子和一隻山羊。為了怕山羊走丟，山羊的脖子上繫著一個小鈴鐺。有三個小偷在路邊看到了，第一個小偷得意地說：「我去偷那隻羊，而且保證不會讓少婦發現。」<br>第二個小偷接著說：「這有什麼了不起，我要直接從少婦手裡把驢子偷走。」第三個小偷笑了笑說：「你們這都不算難，我能把少婦身上的衣服全部偷來。」<br><br>第一個小偷在道路的轉彎處悄悄地走近山羊，把鈴鐺解了下來，拴到了驢尾巴上，然後把羊牽走了。少婦聽著驢尾巴上的鈴鐺聲，完全沒發現異狀，直到她四處環顧了一下，才發現山羊不見了，趕緊開始尋找。<br><br>這時，第二個小偷走到少婦面前，問她在找什麼。少婦說她丟了一隻山羊。小偷指著前面的樹林說：「我見到妳的山羊了！剛才有一個人牽著一隻山羊向那片樹林裡走去了，現在追上去還能抓住他。」少婦一聽，急忙懇求小偷幫她牽著驢子，自己跑進樹林裡去追山羊。第二個小偷就這樣趁機把驢子牽走了。<br><br>少婦從樹林裡空手回來，一看連驢子也不見了，傷心地在路上一邊走一邊哭。走著走著，她看見池塘邊坐著一個人，竟然也哭得很傷心。少婦問他發生了什麼事。<br><br>那個人（其實是第三個小偷）說：「人家讓我把一口袋金子送到城裡去，我實在是太累了，就在池塘邊坐著休息。沒想到睡著了，睡夢中不小心把那口袋金子推到水裡去了！」<br>少婦問他為什麼不自己下去把口袋撈上來。<br>那人哭著說：「我怕水，我不會游泳！誰要是能幫我把這一口袋金子撈上來，我就送給他二十錠金子當作謝禮。」<br><br>少婦聽了大喜，心想：「正因為別人偷走了我的山羊和驢子，老天爺才賜給我這個發大財的機會啊！」於是，她立刻脫下衣服，潛到水裡去撈金子。可是她無論怎麼找，都找不到那口袋金子。當她失望地從水裡爬上來時，發現自己留在岸上的衣服全都不見了。<br><br>這就是人生三大陷阱：大意、輕信、貪婪。不要讓誘惑與試探，迷惑了你的人；更不要讓金錢與利益，迷惑了你的心。"
+        }
+    ];
+
+    // 題庫資料庫 (加入 articleId 來對應左側文章)
+    const questions = [
+        { articleId: 0, q: "看到長滿果實的李子樹時，王戎的反應是什麼？", options: ["馬上跑過去爬樹", "站在原地不動", "叫大家幫他摘", "跑去告訴樹的主人"], a: 1 },
+        { articleId: 0, q: "為什麼王戎知道李子是不好吃的？", options: ["因為他以前吃過這棵樹的李子。", "因為李子的外表看起來壞掉了。", "樹長在路邊卻沒人摘，代表一定有問題。", "因為他聽旁邊的大人說的。"], a: 2 },
+        { articleId: 0, q: "這個故事主要想告訴我們什麼道理？", options: ["路邊的東西都很危險，絕對不能碰。", "遇事要仔細觀察，並用大腦冷靜思考。", "爬樹是一件很危險的事情。", "發現好東西時，要趕快搶在別人前面。"], a: 1 },
+        { articleId: 1, q: "哥哥為什麼不願意照著石頭上的指示做？", options: ["他覺得預言是騙人的。", "他不想當當國王，只想當將軍。", "他覺得過程太危險，寧願安穩度日。", "他不會游泳。"], a: 2 },
+        { articleId: 1, q: "多年後，這對兄弟的結局是什麼？", options: ["兩人都成為了偉大的國王。", "哥哥變得很富有，弟弟變成了乞丐。", "弟弟失去王位，哥哥依舊過著平凡生活。", "兩人都對自己當初的選擇感到後悔。"], a: 2 },
+        { articleId: 1, q: "從故事的結尾可以看出，弟弟是一個怎樣的人？", options: ["勇於冒險，而且不後悔自己的經歷。", "貪心不知足，總想得到更多。", "膽小怕事，遇到困難就放棄。", "驕傲自大，看不起當農夫的哥哥。"], a: 0 },
+        { articleId: 2, q: "第一個小偷是用什麼方法，把山羊偷走的？", options: ["趁少婦睡覺時偷偷把羊牽走。", "把山羊鈴鐺解下，改綁在驢子尾巴上。", "拿好吃的草把山羊騙走。", "假裝是買家，直接把山羊買走。"], a: 1 },
+        { articleId: 2, q: "少婦為什麼會心甘情願脫下衣服，跳進池塘裡？", options: ["因為天氣太熱，她想下去游泳消暑。", "因為她想躲避第二個小偷的追趕。", "因為她的驢子不小心掉進池塘裡了。", "想幫路人撈起金子，藉此獲得高額獎賞。"], a: 3 },
+        { articleId: 2, q: "少婦被騙走衣服，主要是因為她掉進了哪一個陷阱？", options: ["大意", "輕信", "貪婪", "膽小"], a: 2 }
+    ];
+
+    let currentQ = 0;
+    let score = 0;
+    let timerInterval;
+    let timeLeft = 20;
+    
+    function startGame() {
+        document.getElementById('start-screen').classList.remove('active');
+        document.getElementById('game-screen').classList.add('active');
+        loadQuestion();
+    }
+
+    function loadQuestion() {
+        clearInterval(timerInterval);
+        const qData = questions[currentQ];
+        
+        // 根據題目設定左側文章內容
+        document.getElementById('article-title').innerText = articles[qData.articleId].title;
+        document.getElementById('article-content').innerHTML = articles[qData.articleId].content;
+
+        // 設定右側題目內容
+        document.getElementById('question-counter').innerText = `題數: ${currentQ + 1} / ${questions.length}`;
+        document.getElementById('question-text').innerText = qData.q;
+        
+        const optsContainer = document.getElementById('options-container');
+        optsContainer.innerHTML = '';
+        
+        qData.options.forEach((opt, index) => {
+            const btn = document.createElement('button');
+            btn.className = 'option-btn';
+            btn.innerText = opt;
+            btn.onclick = () => checkAnswer(index, btn);
+            optsContainer.appendChild(btn);
+        });
+
+        startTimer();
+    }
+
+    function startTimer() {
+        timeLeft = 20;
+        const timerBar = document.getElementById('timer');
+        timerBar.style.transition = 'none';
+        timerBar.style.width = '100%';
+        
+        setTimeout(() => {
+            timerBar.style.transition = 'width 20s linear';
+            timerBar.style.width = '0%';
+        }, 50);
+
+        timerInterval = setInterval(() => {
+            timeLeft--;
+            if (timeLeft <= 0) {
+                clearInterval(timerInterval);
+                timeOutHandler();
+            }
+        }, 1000);
+    }
+
+    function checkAnswer(selectedIndex, btnElement) {
+        clearInterval(timerInterval);
+        const buttons = document.querySelectorAll('.option-btn');
+        buttons.forEach(b => b.disabled = true);
+
+        const correctIndex = questions[currentQ].a;
+
+        if (selectedIndex === correctIndex) {
+            btnElement.classList.add('correct');
+            score += 10;
+            document.getElementById('score-counter').innerText = `分數: ${score}`;
+        } else {
+            btnElement.classList.add('wrong');
+            buttons[correctIndex].classList.add('correct');
+        }
+
+        setTimeout(nextQuestion, 1500);
+    }
+
+    function timeOutHandler() {
+        const buttons = document.querySelectorAll('.option-btn');
+        buttons.forEach(b => b.disabled = true);
+        const correctIndex = questions[currentQ].a;
+        buttons[correctIndex].classList.add('correct');
+        
+        setTimeout(nextQuestion, 1500);
+    }
+
+    function nextQuestion() {
+        currentQ++;
+        if (currentQ < questions.length) {
+            loadQuestion();
+        } else {
+            endGame();
+        }
+    }
+
+    function endGame() {
+        document.getElementById('game-screen').classList.remove('active');
+        document.getElementById('end-screen').classList.add('active');
+        document.getElementById('final-score').innerText = score;
+        
+        const msg = document.getElementById('feedback-msg');
+        if (score === 90) msg.innerText = "完美通關！看來你的大腦還算管用。";
+        else if (score >= 60) msg.innerText = "勉強及格，但顯然沒有認真看左邊的文章。";
+        else msg.innerText = "我建議你從國小一年級重新開始。";
+    }
+</script>
+</body>
+</html>
